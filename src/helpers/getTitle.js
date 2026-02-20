@@ -3,7 +3,6 @@ import { parse } from "node-html-parser";
 import seriesFetcher from "./seriesFetcher.js";
 
 export default async function getTitle(id) {
-  export default async function getTitle(id) {
   const html = await apiRequestRawHtml(`https://www.imdb.com/title/${id}`, {
     headers: {
       "User-Agent":
