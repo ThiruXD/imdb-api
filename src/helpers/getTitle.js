@@ -3,11 +3,31 @@ import { parse } from "node-html-parser";
 import seriesFetcher from "./seriesFetcher.js";
 
 export default async function getTitle(id) {
-  const html = await apiRequestRawHtml(`https://www.imdb.com/title/${id}`);
+  export default async function getTitle(id) {
+  const html = await apiRequestRawHtml(`https://www.imdb.com/title/${id}`, {
+    headers: {
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
+      "Accept-Language": "en-US,en;q=0.9"
+    }
+  });
+
   const dom = parse(html);
   const nextData = dom.querySelector("#__NEXT_DATA__");
+
+  if (!nextData) {
+    throw new Error("IMDb page structure changed or blocked.");
+  }
+
   const json = JSON.parse(nextData.text);
-  const props = json.props.pageProps;
+  const props = json?.props?.pageProps;
+
+  if (!props?.aboveTheFoldData) {
+    throw new Error("Invalid IMDb data format.");
+  }
+
+  const data = props.aboveTheFoldData;
+
 
   return {
     id: id,
