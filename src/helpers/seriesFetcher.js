@@ -1,50 +1,50 @@
-import { parse } from "node-html-parser";
-import apiRequestRawHtml from "./apiRequest.js";
-
+/**
+ * Fetches series metadata and episode data using the API.
+ */
 export default async function seriesFetcher(id) {
   try {
+    // 1. Fetch seasons list
+    const response = await fetch(`https://api.imdbapi.dev/titles/${id}/seasons`);
+    const seasonsData = await response.json();
+    
+    // 2. Fetch first season episodes by default
     const firstSeason = await getSeason({ id, seasonId: 1 });
+
     return {
-      all_seasons: firstSeason.all_seasons,
-      seasons: [{ ...firstSeason, all_seasons: undefined }]
+      all_seasons: seasonsData.seasons.map((s) => ({
+        id: s,
+        name: `Season ${s}`,
+        api_path: `/title/${id}/season/${s}`
+      })),
+      seasons: [firstSeason]
     };
-  } catch {
-    return {
-      all_seasons: [],
-      seasons: []
-    };
+  } catch (error) {
+    console.error("Series Fetcher Error:", error);
+    return { all_seasons: [], seasons: [] };
   }
 }
 
+/**
+ * Fetches episodes for a specific season.
+ */
 export async function getSeason({ id, seasonId }) {
-  const html = await apiRequestRawHtml(`https://www.imdb.com/title/${id}/episodes?season=${seasonId}`);
-  const dom = parse(html);
-  const nextData = dom.querySelector("#__NEXT_DATA__");
-  const json = JSON.parse(nextData.text);
-
-  const episodes = json.props.pageProps.contentData.section.episodes.items;
-  const seasons = json.props.pageProps.contentData.section.seasons;
+  const response = await fetch(`https://api.imdbapi.dev/titles/${id}/episodes/${seasonId}`);
+  const data = await response.json();
 
   return {
-    name: json.props.pageProps.contentData.entityMetadata.titleText.text,
-    episodes: Object.values(episodes).map((e, i) => ({
+    name: `Season ${seasonId}`,
+    episodes: data.episodes.map((e, i) => ({
       idx: i + 1,
-      no: e.episode,
-      title: e.titleText,
-      image: e.image.url,
-      image_large: e.image.url,
-      image_caption: e.image.caption,
+      no: e.episodeNumber,
+      title: e.title,
+      image: e.image?.url,
+      image_large: e.image?.url,
       plot: e.plot,
-      publishedDate: new Date(e.releaseDate.year, e.releaseDate.month - 1, e.releaseDate.day).toISOString(),
+      publishedDate: e.releaseDate, // API usually returns YYYY-MM-DD
       rating: {
-        count: e.voteCount,
-        star: e.aggregateRating
+        count: e.rating?.voteCount ?? 0,
+        star: e.rating?.aggregateRating ?? 0
       }
-    })),
-    all_seasons: seasons.map((s) => ({
-      id: s.value,
-      name: `Season ${s.value}`,
-      api_path: `/title/${id}/season/${s.value}`
     }))
   };
 }
